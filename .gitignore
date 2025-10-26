@@ -153,3 +153,17 @@ vite.config.ts.timestamp-*
 
 # Go workspace file
 go.work
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Windows
+Thumbs.db
+ehthumbs.db
+
+# VSCode
+.vscode/
+
+# JetBrains (GoLand, WebStorm)
+.idea/
