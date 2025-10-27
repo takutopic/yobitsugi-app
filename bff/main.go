@@ -33,7 +33,7 @@ func assessHandler(c *gin.Context) {
 	}
 
 	// 2. Log that we received the data
-	log.Println("Recieved assessment request: OriginalCode length %d, PatchedCode length %d",
+	log.Printf("Recieved assessment request: OriginalCode length %d, PatchedCode length %d",
 			len(request.OriginalCode), len(request.PatchedCode))
 
 	// 3. Async Part
