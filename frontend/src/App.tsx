@@ -2,7 +2,13 @@ import { useState, useEffect } from 'react'
 import './App.css';
 
 function App() {
+  // State for the /api/hello messge
   const [message, setMessage] = useState('Loading message from Go...');
+
+  // State for messages from the WebSocket
+  const [assessment, setAssessment] = useState("No assessment result yet.")
+
+  // useEffect handles the initial "hello" fetch.
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -25,11 +31,43 @@ function App() {
     fetchData();
   }, []);
 
+  // useEffect handles the WebSocket connection.
+  useEffect(() => {
+    // Create a WebSocket connection
+    const ws = new WebSocket('ws://localhost:8080/ws');
+
+    // Set up event listeners
+    ws.onopen = () => {
+      console.log('WebSocket connection established.');
+    };
+
+    ws.onmessage = (event) => {
+      setAssessment(event.data)
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket connection closed.');
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    // Clean up the connection when the component unmounts
+    return () => {
+      ws.close();
+    };
+  }, []);
+
   return (
     <div>
       <h1>Yobitsugi App</h1>
       <p>
         <strong>Message from Go:</strong> {message}
+      </p>
+
+      <p>
+        <strong>Real-time Assessment (WS):</strong> {assessment}
       </p>
     </div>
   );
