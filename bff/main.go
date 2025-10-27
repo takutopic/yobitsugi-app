@@ -65,21 +65,47 @@ func helloHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, msg)
 }
 
+// wsHandler handles the WebSocket connection request.
+func wsHandler(hub *Hub, c *gin.Context) {
+	// Upgrade the HTTP connection to a WebSocket connection.
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		log.Println("Failed to upgrade connection:", err)
+		return
+	}
+
+	// Create a new Client
+	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
+	// Register the new client with the hub
+	client.hub.register <- client
+
+	log.Println("Client successfully upgraded to WebSocket.")
+}
+
 func main() {
-	// 1. Create a default Gin router
+	// Create a default Gin router
 	router := gin.Default()
 
-	// 2. Setup CORS Middleware
+	// Setup CORS Middleware
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{"http://localhost:5173"}
 	router.Use(cors.New(config))
 
-	// 3. Define the routes
+	// Create and run the Hub
+	hub := newHub()
+	go hub.run() // Start the hub's main loop in a goroutine
+
+	// Define the routes
 	router.GET("/", rootHandler)
 	router.GET("/api/hello", helloHandler)
 	router.POST("/api/assess", assessHandler)
 
-	// 4. Run the server
+	// Add the new WebSocket route
+	router.GET("/ws", func(c *gin.Context) {
+		wsHandler(hub, c)
+	})
+
+	// Run the server
 	log.Println("Gin BFF server starting on http://localhost:8080")
 	log.Fatal(router.Run(":8080"))
 }
