@@ -11,7 +11,7 @@ import (
 
 // Message is a struct to define our JSON structure
 type Message struct {
-	Text string `json."text"`
+	Text string `json:"text"`
 }
 
 // rootHandler handles requests to the / endpoint.
