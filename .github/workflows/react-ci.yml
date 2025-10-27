@@ -7,6 +7,7 @@ on:
     branches: [ "main" ]
     paths:
       - 'frontend/**'
+      - '.github/workflows/react-ci.yml'
 
 jobs:
   build:
