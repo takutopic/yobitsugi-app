@@ -27,10 +27,10 @@ type Client struct {
 
 // Hub maintains the set of active clients and broadcasts messages.
 type Hub struct {
-	clients		map[*Client]bool	// Registered clients
-	broadcast 	chan []byte			// Inbound messages from clients
-	register 	chan *Client		// Register requests from clients
-	unregister	chan *Client 		// Unregister requests from clients
+	clients map[*Client]bool // Registered clients
+	broadcast chan []byte // Inbound messages from clients
+	register chan *Client // Register requests from clients
+	unregister chan *Client // Unregister requests from clients
 }
 
 // newHub creates a new Hub.
