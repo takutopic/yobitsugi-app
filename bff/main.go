@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-// Message is a struct to define out JSON structure
+// Message is a struct to define our JSON structure
 type Message struct {
 	Text string `json."text"`
 }
@@ -48,6 +48,6 @@ func main() {
 	http.Handle("/", corsMiddleware(http.HandlerFunc(rootHandler)))
 	http.Handle("/api/hello", corsMiddleware(http.HandlerFunc(helloHandler)))
 
-	fmt.Println("Go BFF server starting on http://localhost:8080")
+	fmt.Println("Go BFF server starting on http://localhost:8080 (with CORS Middleware)")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
