@@ -2,6 +2,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -30,7 +31,7 @@ type AssessmentResult struct {
 }
 
 // assessHandler handles the POST request to /api/assess
-func assessHandler(c *gin.Context) {
+func assessHandler(hub *Hub, c *gin.Context) {
 	var request PatchRequest
 
 	// 1. Bind the incoming JSON from React to our struct.
@@ -124,7 +125,9 @@ func main() {
 	// Define the routes
 	router.GET("/", rootHandler)
 	router.GET("/api/hello", helloHandler)
-	router.POST("/api/assess", assessHandler)
+	router.POST("/api/assess", func(c *gin.Context) {
+		assessHandler(hub, c)
+	})
 
 	// Add the new WebSocket route
 	router.GET("/ws", func(c *gin.Context) {
