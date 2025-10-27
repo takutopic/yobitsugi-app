@@ -21,6 +21,14 @@ type PatchRequest struct {
 	PatchedCode  string `json:"patchedCode"`
 }
 
+// AssessmentResult defines the structure for the WebSocket broadcast
+type AssessmentResult struct {
+	Status string `json:"status"`
+	AssessedTruth bool `json:"assessedTruth"`
+	Confidence int `json:"confidence"`
+	Reasoning string `json:"reasoning"`
+}
+
 // assessHandler handles the POST request to /api/assess
 func assessHandler(c *gin.Context) {
 	var request PatchRequest
@@ -46,6 +54,24 @@ func assessHandler(c *gin.Context) {
 		time.Sleep(5 * time.Second)
 
 		log.Println("[Goroutine] Simulated Python call FINISHED.")
+
+		// Create the new, detailed result
+		result := AssessmentResult{
+			Status: "PASS",
+			AssessedTruth: true,
+			Confidence: 95,
+			Reasoning: "The patch logic correctly addresses the off-by-one error (simulated).",
+		}
+
+		// Marshal the result struct into JSON bytes
+		jsonResult, err := json.Marshal(result)
+		if err != nil {
+			log.Println("Error marshaling result:", err)
+			return
+		}
+
+		// Send the JSON bytes to the hub's broadcast channel
+		hub.broadcast <- jsonResult
 	}()
 
 	// 4. Send an immediate "Accepted" response to React
