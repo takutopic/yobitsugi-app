@@ -15,12 +15,12 @@ var upgrader = websocket.Upgrader{
 
 	CheckOrigin: func(r *http.Request) bool {
 		return true
-	}
+	},
 }
 
 // Client is a middleman between the websocket connection and the hub.
 type Client struct {
-	hub *hub
+	hub *Hub
 	conn *websocket.Conn
 	send chan []byte // A buffered channel for outbound messages
 }
@@ -36,14 +36,14 @@ type Hub struct {
 // newHub creates a new Hub.
 func newHub() *Hub {
 	return &Hub{
-		broadcast:	make(chan []byte).
+		broadcast:	make(chan []byte),
 		register: 	make(chan *Client),
 		unregister: make(chan *Client),
 		clients: 	make(map[*Client]bool),
 	}
 }
 
-// run is the main loop for the Hub. It must be run as a goroutine
+// run is the main loop for the Hub. It must be run as a goroutine.
 func (h *Hub) run() {
 	for {
 		select {

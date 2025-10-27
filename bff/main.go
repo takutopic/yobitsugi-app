@@ -101,7 +101,7 @@ func main() {
 	router.POST("/api/assess", assessHandler)
 
 	// Add the new WebSocket route
-	router.GET("ws", func(c *gin.Context) {
+	router.GET("/ws", func(c *gin.Context) {
 		wsHandler(hub, c)
 	})
 
