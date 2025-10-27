@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react'
 import './App.css';
 
 function App() {
-  // State for the /api/hello messge
+  // State for the /api/hello message
   const [message, setMessage] = useState('Loading message from Go...');
 
   // State for messages from the WebSocket
-  const [assessment, setAssessment] = useState("No assessment result yet.")
+  const [assessment, setAssessment] = useState("No assessment result yet.");
 
   // useEffect handles the initial "hello" fetch.
   useEffect(() => {
@@ -42,7 +42,7 @@ function App() {
     };
 
     ws.onmessage = (event) => {
-      setAssessment(event.data)
+      setAssessment(event.data);
     };
 
     ws.onclose = () => {
