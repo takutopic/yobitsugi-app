@@ -32,7 +32,7 @@ func assessHandler(c *gin.Context) {
 		return
 	}
 
-	// 2. Log that we recieved the data
+	// 2. Log that we received the data
 	log.Println("Recieved assessment request: OriginalCode length %d, PatchedCode length %d",
 			len(request.OriginalCode), len(request.PatchedCode))
 
