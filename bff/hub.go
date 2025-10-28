@@ -127,7 +127,7 @@ func (c *Client) writePump() {
 				return
 			}
 
-			// Sen the message to the client
+			// Send the message to the client
 			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
 				return
 			}

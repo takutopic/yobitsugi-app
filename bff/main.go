@@ -24,10 +24,10 @@ type PatchRequest struct {
 
 // AssessmentResult defines the structure for the WebSocket broadcast
 type AssessmentResult struct {
-	Status 		  string 	`json:"status"`
-	AssessedTruth bool 	`json:"assessedTruth"`
-	Confidence 	  int 	`json:"confidence"`
-	Reasoning 	  string 	`json:"reasoning"`
+	Status         string `json:"status"`
+	AssessedTruth  bool   `json:"assessedTruth"`
+	Confidence     int    `json:"confidence"`
+	Reasoning      string `json:"reasoning"`
 }
 
 // assessHandler handles the POST request to /api/assess

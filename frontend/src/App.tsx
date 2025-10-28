@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react'
 import './App.css';
 
+// Interface for assessment results
+interface AssessmentResult {
+  status: string;
+  assessedTruth: boolean;
+  confidence: number;
+  reasoning: string;
+}
+
 function App() {
   // State for the /api/hello message
   const [message, setMessage] = useState('Loading message from Go...');
@@ -42,7 +50,7 @@ function App() {
     };
 
     ws.onmessage = (event) => {
-      console.log('WebSOcket message received:', event.data);
+      console.log('WebSocket message received:', event.data);
 
       try {
         // Parse the new JSON structure
@@ -78,12 +86,7 @@ function App() {
   }, []);
 
   // Interface
-  interface AssessmentResult {
-    status: string;
-    assessedTruth: boolean;
-    confidence: number;
-    reasoning: string;
-  }
+  // (Moved to top of file)
 
   return (
     <div>
