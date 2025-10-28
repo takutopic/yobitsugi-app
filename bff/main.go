@@ -18,7 +18,7 @@ type Message struct {
 
 // PatchRequest defines the structure for the assessment request JSON
 type PatchRequest struct {
-	BugDescripton string `json:"bugDescription"`
+	BugDescription string `json:"bugDescription"`
 	OriginalCode  string `json:"originalCode"`
 	PatchedCode   string `json:"patchedCode"`
 }
@@ -45,7 +45,7 @@ func assessHandler(hub *Hub, c *gin.Context) {
 
 	// Log that we received the data
 	log.Printf("Received assessment request: BugDescription[len %d], OriginalCode[len %d], PatchedCode[len %d]",
-			len(request.BugDescripton), len(request.OriginalCode), len(request.PatchedCode))
+			len(request.BugDescription), len(request.OriginalCode), len(request.PatchedCode))
 
 	// Async Part
 	// Launch a goroutine to handle the "slow" work (simulating Python call).
