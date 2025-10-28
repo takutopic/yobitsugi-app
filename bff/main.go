@@ -24,10 +24,10 @@ type PatchRequest struct {
 
 // AssessmentResult defines the structure for the WebSocket broadcast
 type AssessmentResult struct {
-	Status string `json:"status"`
-	AssessedTruth bool `json:"assessedTruth"`
-	Confidence int `json:"confidence"`
-	Reasoning string `json:"reasoning"`
+	Status 		  string 	`json:"status"`
+	AssessedTruth bool 	`json:"assessedTruth"`
+	Confidence 	  int 	`json:"confidence"`
+	Reasoning 	  string 	`json:"reasoning"`
 }
 
 // assessHandler handles the POST request to /api/assess
@@ -58,10 +58,10 @@ func assessHandler(hub *Hub, c *gin.Context) {
 
 		// Create the new, detailed result
 		result := AssessmentResult{
-			Status: "PASS",
-			AssessedTruth: true,
-			Confidence: 95,
-			Reasoning: "The patch logic correctly addresses the off-by-one error (simulated).",
+			Status: 		"PASS",
+			AssessedTruth: 	true,
+			Confidence: 	95,
+			Reasoning: 		"The patch logic correctly addresses the off-by-one error (simulated).",
 		}
 
 		// Marshal the result struct into JSON bytes
@@ -107,6 +107,11 @@ func wsHandler(hub *Hub, c *gin.Context) {
 	client.hub.register <- client
 
 	log.Println("Client successfully upgraded to WebSocket.")
+
+	// Start the client's goroutines
+	// Allow the client to read messages and write messges
+	go client.writePump()
+	go client.readPump()
 }
 
 func main() {
@@ -115,7 +120,7 @@ func main() {
 
 	// Setup CORS Middleware
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://localhost:5173"}
+	config.AllowOrigins = []string{"http://localhost:5173", "http://127.0.0.1:5173"}
 	router.Use(cors.New(config))
 
 	// Create and run the Hub
@@ -138,3 +143,4 @@ func main() {
 	log.Println("Gin BFF server starting on http://localhost:8080")
 	log.Fatal(router.Run(":8080"))
 }
+
