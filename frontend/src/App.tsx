@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react'
 import './App.css';
 
+// Interface for assessment results
+interface AssessmentResult {
+  status: string;
+  assessedTruth: boolean;
+  confidence: number;
+  reasoning: string;
+}
+
 function App() {
   // State for the /api/hello message
   const [message, setMessage] = useState('Loading message from Go...');
@@ -42,7 +50,25 @@ function App() {
     };
 
     ws.onmessage = (event) => {
-      setAssessment(event.data);
+      console.log('WebSocket message received:', event.data);
+
+      try {
+        // Parse the new JSON structure
+        const result: AssessmentResult = JSON.parse(event.data);
+
+        // Display the new fields
+        const newAssessmentText = `
+          Status: ${result.status} | 
+          Assessed Truth: ${result.assessedTruth} | 
+          Confidence: ${result.confidence}% | 
+          Reasoning: ${result.reasoning}
+        `;
+        setAssessment(newAssessmentText);
+        
+      } catch (error) {
+        console.error('Failed to parse WebSocket JSON:', error);
+        setAssessment(event.data);
+      }
     };
 
     ws.onclose = () => {
@@ -59,6 +85,9 @@ function App() {
     };
   }, []);
 
+  // Interface
+  // (Moved to top of file)
+
   return (
     <div>
       <h1>Yobitsugi App</h1>
@@ -67,8 +96,11 @@ function App() {
       </p>
 
       <p>
-        <strong>Real-time Assessment (WS):</strong> {assessment}
+        <strong>Real-time Assessment (WS):</strong>
       </p>
+      <pre style={{ backgroundColor: '#110264ff', padding: '10px' }}>
+         {assessment}
+      </pre>
     </div>
   );
 }

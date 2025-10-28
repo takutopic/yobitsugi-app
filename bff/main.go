@@ -2,6 +2,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -21,8 +22,16 @@ type PatchRequest struct {
 	PatchedCode  string `json:"patchedCode"`
 }
 
+// AssessmentResult defines the structure for the WebSocket broadcast
+type AssessmentResult struct {
+	Status         string `json:"status"`
+	AssessedTruth  bool   `json:"assessedTruth"`
+	Confidence     int    `json:"confidence"`
+	Reasoning      string `json:"reasoning"`
+}
+
 // assessHandler handles the POST request to /api/assess
-func assessHandler(c *gin.Context) {
+func assessHandler(hub *Hub, c *gin.Context) {
 	var request PatchRequest
 
 	// 1. Bind the incoming JSON from React to our struct.
@@ -46,6 +55,24 @@ func assessHandler(c *gin.Context) {
 		time.Sleep(5 * time.Second)
 
 		log.Println("[Goroutine] Simulated Python call FINISHED.")
+
+		// Create the new, detailed result
+		result := AssessmentResult{
+			Status: 		"PASS",
+			AssessedTruth: 	true,
+			Confidence: 	95,
+			Reasoning: 		"The patch logic correctly addresses the off-by-one error (simulated).",
+		}
+
+		// Marshal the result struct into JSON bytes
+		jsonResult, err := json.Marshal(result)
+		if err != nil {
+			log.Println("Error marshaling result:", err)
+			return
+		}
+
+		// Send the JSON bytes to the hub's broadcast channel
+		hub.broadcast <- jsonResult
 	}()
 
 	// 4. Send an immediate "Accepted" response to React
@@ -80,6 +107,11 @@ func wsHandler(hub *Hub, c *gin.Context) {
 	client.hub.register <- client
 
 	log.Println("Client successfully upgraded to WebSocket.")
+
+	// Start the client's goroutines
+	// Allow the client to read messages and write messges
+	go client.writePump()
+	go client.readPump()
 }
 
 func main() {
@@ -88,7 +120,7 @@ func main() {
 
 	// Setup CORS Middleware
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://localhost:5173"}
+	config.AllowOrigins = []string{"http://localhost:5173", "http://127.0.0.1:5173"}
 	router.Use(cors.New(config))
 
 	// Create and run the Hub
@@ -98,7 +130,9 @@ func main() {
 	// Define the routes
 	router.GET("/", rootHandler)
 	router.GET("/api/hello", helloHandler)
-	router.POST("/api/assess", assessHandler)
+	router.POST("/api/assess", func(c *gin.Context) {
+		assessHandler(hub, c)
+	})
 
 	// Add the new WebSocket route
 	router.GET("/ws", func(c *gin.Context) {
@@ -109,3 +143,4 @@ func main() {
 	log.Println("Gin BFF server starting on http://localhost:8080")
 	log.Fatal(router.Run(":8080"))
 }
+
