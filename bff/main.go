@@ -18,16 +18,17 @@ type Message struct {
 
 // PatchRequest defines the structure for the assessment request JSON
 type PatchRequest struct {
-	OriginalCode string `json:"originalCode"`
-	PatchedCode  string `json:"patchedCode"`
+	BugDescripton string `json:"bugDescription"`
+	OriginalCode  string `json:"originalCode"`
+	PatchedCode   string `json:"patchedCode"`
 }
 
 // AssessmentResult defines the structure for the WebSocket broadcast
 type AssessmentResult struct {
-	Status         string `json:"status"`
-	AssessedTruth  bool   `json:"assessedTruth"`
-	Confidence     int    `json:"confidence"`
-	Reasoning      string `json:"reasoning"`
+	Status        string `json:"status"`
+	AssessedTruth bool   `json:"assessedTruth"`
+	Confidence    int    `json:"confidence"`
+	Reasoning     string `json:"reasoning"`
 }
 
 // assessHandler handles the POST request to /api/assess
@@ -43,8 +44,8 @@ func assessHandler(hub *Hub, c *gin.Context) {
 	}
 
 	// Log that we received the data
-	log.Printf("Received assessment request: OriginalCode length %d, PatchedCode length %d",
-			len(request.OriginalCode), len(request.PatchedCode))
+	log.Printf("Received assessment request: BugDescription[len %d], OriginalCode[len %d], PatchedCode[len %d]",
+			len(request.BugDescripton), len(request.OriginalCode), len(request.PatchedCode))
 
 	// Async Part
 	// Launch a goroutine to handle the "slow" work (simulating Python call).

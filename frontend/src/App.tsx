@@ -16,6 +16,7 @@ function App() {
   // State for messages from the WebSocket
   const [assessment, setAssessment] = useState("No assessment result yet.");
 
+  const [bugDescription, setBugDescription] = useState('');
   const [originalCode, setOriginalCode] = useState('');
   const [patchedCode, setPatchedCode] = useState('');
 
@@ -98,6 +99,7 @@ function App() {
     setAssessment("Assessment in progress...");
 
     const body = {
+      bugDescription,
       originalCode,
       patchedCode,
     };
@@ -132,6 +134,16 @@ function App() {
       <hr />
       
       <form onSubmit={handleSubmit}>
+        <div>
+          <h3>Bug Description</h3>
+          <textarea
+            style={{ width: '100%', height: '100px', fontFamily: 'monospace' }}
+            value={bugDescription}
+            onChange={(e) => setBugDescription(e.target.value)}
+            placeholder="Paste the bug description or issue report here..."
+          />
+        </div>
+    
         <div style={{ display: 'flex', gap: '10px' }}>
           <div style={{ flex: 1 }}>
             <h3>Original Code</h3>
@@ -142,6 +154,7 @@ function App() {
               placeholder="Paste the original code here..."
             />
           </div>
+          
           <div style={{ flex: 1 }}>
             <h3>Patched Code</h3>
             <textarea
