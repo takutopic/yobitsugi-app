@@ -164,6 +164,10 @@ function App() {
       <pre style={{ backgroundColor: '#110264ff', padding: '10px' }}>
          {assessment}
       </pre>
+      
+      <p style={{ marginTop: '50px', fontSize: '12px', color: 'gray' }}>
+        <strong>API Status:</strong> {message}
+      </p>
     </div>
   );
 }
