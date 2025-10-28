@@ -120,7 +120,7 @@ func ServeWs(hub *Hub, c *gin.Context) {
 	log.Println("Client successfully upgraded to WebSocket.")
 
 	// Start the client's goroutines
-	// Allow the client to read messages and write messges
+	// Allow the client to read messages and write messages
 	go client.writePump()
 	go client.readPump()
 }
