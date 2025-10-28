@@ -34,7 +34,7 @@ type AssessmentResult struct {
 func assessHandler(hub *Hub, c *gin.Context) {
 	var request PatchRequest
 
-	// 1. Bind the incoming JSON from React to our struct.
+	// Bind the incoming JSON from React to our struct.
 	// If binding fails, return a 400 Bad Request.
 	if err := c.BindJSON(&request); err != nil {
 		log.Println("Error binding JSON:", err)
@@ -42,11 +42,11 @@ func assessHandler(hub *Hub, c *gin.Context) {
 		return
 	}
 
-	// 2. Log that we received the data
+	// Log that we received the data
 	log.Printf("Recieved assessment request: OriginalCode length %d, PatchedCode length %d",
 			len(request.OriginalCode), len(request.PatchedCode))
 
-	// 3. Async Part
+	// Async Part
 	// Launch a goroutine to handle the "slow" work (simulating Python call).
 	// This allows us to send an immediate response to React
 	go func() {
@@ -75,7 +75,7 @@ func assessHandler(hub *Hub, c *gin.Context) {
 		hub.broadcast <- jsonResult
 	}()
 
-	// 4. Send an immediate "Accepted" response to React
+	// Send an immediate "Accepted" response to React
 	// This tells React "We got your job, and we are working on it."
 	c.JSON(http.StatusAccepted, gin.H{"status": "Job accepted and processing"})
 }
@@ -90,28 +90,6 @@ func helloHandler(c *gin.Context) {
 	msg := Message{Text: "Hello from Go BFF! 🚀 (Now with JSON and Gin!)"}
 
 	c.JSON(http.StatusOK, msg)
-}
-
-// wsHandler handles the WebSocket connection request.
-func wsHandler(hub *Hub, c *gin.Context) {
-	// Upgrade the HTTP connection to a WebSocket connection.
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		log.Println("Failed to upgrade connection:", err)
-		return
-	}
-
-	// Create a new Client
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
-	// Register the new client with the hub
-	client.hub.register <- client
-
-	log.Println("Client successfully upgraded to WebSocket.")
-
-	// Start the client's goroutines
-	// Allow the client to read messages and write messges
-	go client.writePump()
-	go client.readPump()
 }
 
 func main() {
@@ -136,7 +114,7 @@ func main() {
 
 	// Add the new WebSocket route
 	router.GET("/ws", func(c *gin.Context) {
-		wsHandler(hub, c)
+		ServeWs(hub, c)
 	})
 
 	// Run the server
