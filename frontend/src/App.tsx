@@ -19,7 +19,7 @@ function App() {
   const [originalCode, setOriginalCode] = useState('');
   const [patchedCode, setPatchedCode] = useState('');
 
-  // State for traking the submission
+  // State for tracking the submission
   const [isLoading, setIsLoading] = useState(false)
 
   // useEffect handles the initial "hello" fetch.
@@ -95,7 +95,7 @@ function App() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setAssessment("Assessment in progress...")
+    setAssessment("Assessment in progress...");
 
     const body = {
       originalCode,
@@ -116,12 +116,13 @@ function App() {
       }
 
       const data = await response.json();
-      console.log('Job accepted by server:', data.status)
+      console.log('Job accepted by server:', data.status);
 
     } catch (error) {
       console.error("Failed to submit assessment:", error);
       setAssessment(`Error submitting job: ${error}`)
-      setIsLoading(false)
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -138,7 +139,7 @@ function App() {
               style={{ width: '100%', height: '200px', fontFamily: 'monospace' }}
               value={originalCode}
               onChange={(e) => setOriginalCode(e.target.value)}
-              placeholder="Paste the orifinal code here..."
+              placeholder="Paste the original code here..."
             />
           </div>
           <div style={{ flex: 1 }}>
