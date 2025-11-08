@@ -5,21 +5,27 @@ import (
 	"log"
 )
 
+// PrivateMessage is a struct to wrap a message with the intended client ID.
+type PrivateMessage struct {
+	ClientID string
+	Payload  []byte
+}
+
 // Hub maintains the set of active clients and broadcasts messages.
 type Hub struct {
-	clients map[*Client]bool // Registered clients
-	broadcast chan []byte // Inbound messages from clients
-	register chan *Client // Register requests from clients
-	unregister chan *Client // Unregister requests from clients
+	clients     map[string]*Client   // Registered clients
+	sendPrivate chan *PrivateMessage // Inbound messages from clients
+	register    chan *Client         // Register requests from clients
+	unregister  chan *Client         // Unregister requests from clients
 }
 
 // newHub creates a new Hub.
 func newHub() *Hub {
 	return &Hub{
-		broadcast:	make(chan []byte),
-		register: 	make(chan *Client),
-		unregister: make(chan *Client),
-		clients: 	make(map[*Client]bool),
+		clients:     make(map[string]*Client),
+		sendPrivate: make(chan *PrivateMessage),
+		register:    make(chan *Client),
+		unregister:  make(chan *Client),
 	}
 }
 
@@ -29,27 +35,25 @@ func (h *Hub) run() {
 		select {
 		case client := <-h.register:
 			// A new client has connected.
-			h.clients[client] = true
-			log.Println("A new client has connected. Total clients:", len(h.clients))
-		
+			h.clients[client.ID] = client
+			log.Printf("A new client '%s' has connected. Total clients: %d", client.ID, len(h.clients))
+
 		case client := <-h.unregister:
 			// A client has disconnected.
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
+			if _, ok := h.clients[client.ID]; ok {
+				delete(h.clients, client.ID)
 				close(client.send)
-				log.Println("A client has disconnected. Total clients:", len(h.clients))
+				log.Printf("A client '%s' has disconnected. Total clients: %d", client.ID, len(h.clients))
 			}
-		
-		case message := <-h.broadcast:
-			// A message needs to be broadcast to all clients.
-			for client := range h.clients {
+
+		case message := <-h.sendPrivate:
+			// Find the specific client by its ID
+			if client, ok := h.clients[message.ClientID]; ok {
 				select {
-				case client.send <- message:
-					// Send the message to the client's send channel.
+				case client.send <- message.Payload:
 				default:
-					// If the send channel is full, assume the client is dead.
 					close(client.send)
-					delete(h.clients, client)
+					delete(h.clients, client.ID)
 				}
 			}
 		}
