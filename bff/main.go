@@ -2,7 +2,9 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -31,6 +33,8 @@ type AssessmentResult struct {
 	Reasoning     string `json:"reasoning"`
 }
 
+const pythonServiceURL = "http://localhost:8000/assess-kantei"
+
 // assessHandler handles the POST request to /api/assess
 func assessHandler(hub *Hub, c *gin.Context) {
 	var request PatchRequest
@@ -47,34 +51,57 @@ func assessHandler(hub *Hub, c *gin.Context) {
 	log.Printf("Received assessment request: BugDescription[len %d], OriginalCode[len %d], PatchedCode[len %d]",
 			len(request.BugDescription), len(request.OriginalCode), len(request.PatchedCode))
 
-	// Async Part
-	// Launch a goroutine to handle the "slow" work (simulating Python call).
-	// This allows us to send an immediate response to React
-	go func() {
-		log.Println("[Goroutine] Starting simulated Python call...")
+	go func(req PatchRequest) {
+		log.Println("[Goroutine] Starting READ Python call...")
 
-		time.Sleep(5 * time.Second)
-
-		log.Println("[Goroutine] Simulated Python call FINISHED.")
-
-		// Create the new, detailed result
-		result := AssessmentResult{
-			Status: 		"PASS",
-			AssessedTruth: 	true,
-			Confidence: 	95,
-			Reasoning: 		"The patch logic correctly addresses the off-by-one error (simulated).",
-		}
-
-		// Marshal the result struct into JSON bytes
-		jsonResult, err := json.Marshal(result)
+		jsonData, err := json.Marshal(req)
 		if err != nil {
-			log.Println("Error marshaling result:", err)
+			log.Printf("[Goroutine] Error marshaling request for Python: %v, err")
 			return
 		}
 
-		// Send the JSON bytes to the hub's broadcast channel
+		httpReq, err := http.NewRequest("POST", pythonServiceURL, bytes.NewBuffer((jsonData)))
+		if err != nil {
+			log.Printf("[Goroutine] Error creating request for Python: %v", err)
+			return
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+
+		client := &http.Client{Timeout: 30* time.Second}
+		httpResp, err := client.Do(httpReq)
+		if err != nil {
+			log.Printf("[Goroutine] Error sending request to Python: %v", err)
+			return
+		}
+		defer httpResp.Body.Close()
+
+		body, err := io.ReadAll(httpResp.Body)
+		if err != nil {
+			log.Printf("[Goroutine] Error reading response from Python: %v", err)
+			return
+		}
+
+		if httpResp.StatusCode != http.StatusOK {
+			log.Printf("[Goroutine] Python service returned non-200 status: %s, Body: %s", httpResp.Status, string(body))
+			return
+		}
+
+		var result AssessmentResult
+		if err := json.Unmarshal(body, &result); err != nil {
+			log.Printf("[Goroutine] Error unmarshaling response from Python: %v")
+			return
+		}
+
+		log.Println("[Goroutine] Real Python call FINISHED.")
+
+		jsonResult, err := json.Marshal(result)
+		if err != nil {
+			log.Println("Error marshaling final result", err)
+			return
+		}
+
 		hub.broadcast <- jsonResult
-	}()
+	}(request)
 
 	// Send an immediate "Accepted" response to React
 	// This tells React "We got your job, and we are working on it."
