@@ -43,11 +43,11 @@ func (h *Hub) run() {
 			if _, ok := h.clients[client.ID]; ok {
 				delete(h.clients, client.ID)
 				close(client.send)
-				log.Println("A client '%s' has disconnected. Total clients:", client.ID, len(h.clients))
+				log.Printf("A client '%s' has disconnected. Total clients: %d", client.ID, len(h.clients))
 			}
 
 		case message := <-h.sendPrivate:
-			// Find the specific cliend by its ID
+			// Find the specific client by its ID
 			if client, ok := h.clients[message.ClientID]; ok {
 				select {
 				case client.send <- message.Payload:
