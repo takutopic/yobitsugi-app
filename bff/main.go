@@ -4,6 +4,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -55,52 +56,77 @@ func assessHandler(hub *Hub, c *gin.Context) {
 	go func(req PatchRequest) {
 		log.Printf("[Goroutine %s] Starting READ Python call...", req.ClientID)
 
+		sendErrorToClient := func(reason string, err error) {
+			log.Printf("[Goroutine %s] Error: %s. %v", req.ClientID, reason, err)
+			errorResult := AssessmentResult{
+				Status:	"ERROR",
+				AssessedTruth: false,
+				Confidence: 0,
+				Reasoning: fmt.Sprintf("%s (detail: %v)", reason, err),
+			}
+			jsonResult, _ := json.Marshal(errorResult)
+			privateMsg := &PrivateMessage{
+				ClientID: req.ClientID,
+				Payload:  jsonResult,
+			}
+			hub.sendPrivate <- privateMsg
+		}
+		
+		// Marshal the requst data
 		jsonData, err := json.Marshal(req)
 		if err != nil {
-			log.Printf("[Goroutine %s] Error marshaling request for Python: %v", req.ClientID, err)
+			sendErrorToClient("Failed to create request for Kantei", err)
 			return
 		}
 
+		// Create the HTTP request
 		httpReq, err := http.NewRequest("POST", pythonServiceURL, bytes.NewBuffer((jsonData)))
 		if err != nil {
-			log.Printf("[Goroutine %s] Error creating request for Python: %v", req.ClientID, err)
+			sendErrorToClient("Failed to create HTTP request", err)
 			return
 		}
 		httpReq.Header.Set("Content-Type", "application/json")
 
+		// Send the request
 		client := &http.Client{Timeout: 30* time.Second}
 		httpResp, err := client.Do(httpReq)
 		if err != nil {
-			log.Printf("[Goroutine %s] Error sending request to Python: %v", req.ClientID, err)
+			sendErrorToClient("Failed to connect to Kantei service", err)
 			return
 		}
 		defer httpResp.Body.Close()
 
+		// Read the response
 		body, err := io.ReadAll(httpResp.Body)
 		if err != nil {
-			log.Printf("[Goroutine %s] Error reading response from Python: %v", req.ClientID, err)
+			sendErrorToClient("Failed to read response from Kantei", err)
 			return
 		}
 
+		// Check for non-200 status
 		if httpResp.StatusCode != http.StatusOK {
-			log.Printf("[Goroutine %s] Python service returned non-200 status: %s, Body: %s", req.ClientID, httpResp.Status, string(body))
+			reason := fmt.Sprintf("Kantei service returned non-200 status: %s", httpResp.Status)
+			sendErrorToClient(reason, fmt.Errorf(string(body)))
 			return
 		}
 
+		// Unmarshal the Python response
 		var result AssessmentResult
 		if err := json.Unmarshal(body, &result); err != nil {
-			log.Printf("[Goroutine %s] Error unmarshaling response from Python: %v", req.ClientID, err)
+			sendErrorToClient("Failed to parse Kantei response", err)
 			return
 		}
 
 		log.Printf("[Goroutine %s] Real Python call FINISHED.", req.ClientID)
 
+		// Marshal the *real* result for broadcasting
 		jsonResult, err := json.Marshal(result)
 		if err != nil {
-			log.Println("Error marshaling final result", err)
+			sendErrorToClient("Failed to marshal final result", err)
 			return
 		}
 
+		// Send the real (successful) result to the client
 		privateMsg := &PrivateMessage{
 			ClientID: req.ClientID,
 			Payload:  jsonResult,
