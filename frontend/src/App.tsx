@@ -9,6 +9,8 @@ interface AssessmentResult {
   reasoning: string;
 }
 
+const myClientId = Math.random().toString(36).substring(2,10);
+
 function App() {
   // State for the /api/hello message
   const [message, setMessage] = useState('Loading message from Go...');
@@ -49,14 +51,15 @@ function App() {
   // useEffect handles the WebSocket connection.
   useEffect(() => {
     // Create a WebSocket connection
-    const ws = new WebSocket('ws://localhost:8080/ws');
+    const wsUrl = `ws://localhost:8080/ws?clientId=${myClientId}`;
+    console.log(`Connecting to WebSocket as: ${myClientId}`);
 
-    // Set up event listeners
+    const ws = new WebSocket(wsUrl);
     ws.onopen = () => {
       console.log('WebSocket connection established.');
     };
 
-        ws.onclose = () => {
+    ws.onclose = () => {
       console.log('WebSocket connection closed.');
     };
 
@@ -66,12 +69,10 @@ function App() {
 
     ws.onmessage = (event) => {
       console.log('WebSocket message received:', event.data);
+      setIsLoading(false);
 
       try {
-        // Parse the new JSON structure
         const result: AssessmentResult = JSON.parse(event.data);
-
-        // Display the new fields
         const newAssessmentText = `
           Status: ${result.status} | 
           Assessed Truth: ${result.assessedTruth} | 
@@ -85,6 +86,8 @@ function App() {
         setAssessment(event.data);
       }
     };
+    ws.onclose = () => console.log('WebScoket connection closed.');
+    ws.onerror = (error) => console.error('Websocket error:', error);
 
     // Clean up the connection when the component unmounts
     return () => {
@@ -102,10 +105,11 @@ function App() {
       bugDescription,
       originalCode,
       patchedCode,
+      clientId: myClientId,
     };
 
     try {
-      const response = await fetch('http://localhost:8080/api/assess', {
+      const response = await fetch('http://localhost:8080/api/assess-kantei', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
