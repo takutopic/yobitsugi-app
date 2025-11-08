@@ -19,8 +19,8 @@ type AssessmentJob struct {
 	BugDescription  string
 
 	ResultStatus		  string
-	ResultAssessmentTruth string
-	ResutlConfidence	  string
+	ResultAssessmentTruth bool
+	ResutlConfidence	  int
 	ResultReasoning		  string
 }
 
