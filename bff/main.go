@@ -21,8 +21,9 @@ type Message struct {
 // PatchRequest defines the structure for the assessment request JSON
 type PatchRequest struct {
 	BugDescription string `json:"bugDescription"`
-	OriginalCode  string `json:"originalCode"`
-	PatchedCode   string `json:"patchedCode"`
+	OriginalCode   string `json:"originalCode"`
+	PatchedCode    string `json:"patchedCode"`
+	ClientID	   string `json:"clientId"`
 }
 
 // AssessmentResult defines the structure for the WebSocket broadcast
@@ -52,17 +53,17 @@ func assessHandler(hub *Hub, c *gin.Context) {
 			len(request.BugDescription), len(request.OriginalCode), len(request.PatchedCode))
 
 	go func(req PatchRequest) {
-		log.Println("[Goroutine] Starting READ Python call...")
+		log.Printf("[Goroutine %s] Starting READ Python call...", req.ClientID)
 
 		jsonData, err := json.Marshal(req)
 		if err != nil {
-			log.Printf("[Goroutine] Error marshaling request for Python: %v, err")
+			log.Printf("[Goroutine %s] Error marshaling request for Python: %v", req.ClientID, err)
 			return
 		}
 
 		httpReq, err := http.NewRequest("POST", pythonServiceURL, bytes.NewBuffer((jsonData)))
 		if err != nil {
-			log.Printf("[Goroutine] Error creating request for Python: %v", err)
+			log.Printf("[Goroutine %s] Error creating request for Python: %v", req.ClientID, err)
 			return
 		}
 		httpReq.Header.Set("Content-Type", "application/json")
@@ -70,29 +71,29 @@ func assessHandler(hub *Hub, c *gin.Context) {
 		client := &http.Client{Timeout: 30* time.Second}
 		httpResp, err := client.Do(httpReq)
 		if err != nil {
-			log.Printf("[Goroutine] Error sending request to Python: %v", err)
+			log.Printf("[Goroutine %s] Error sending request to Python: %v", req.ClientID, err)
 			return
 		}
 		defer httpResp.Body.Close()
 
 		body, err := io.ReadAll(httpResp.Body)
 		if err != nil {
-			log.Printf("[Goroutine] Error reading response from Python: %v", err)
+			log.Printf("[Goroutine %s] Error reading response from Python: %v", req.ClientID, err)
 			return
 		}
 
 		if httpResp.StatusCode != http.StatusOK {
-			log.Printf("[Goroutine] Python service returned non-200 status: %s, Body: %s", httpResp.Status, string(body))
+			log.Printf("[Goroutine %s] Python service returned non-200 status: %s, Body: %s", req.ClientID, httpResp.Status, string(body))
 			return
 		}
 
 		var result AssessmentResult
 		if err := json.Unmarshal(body, &result); err != nil {
-			log.Printf("[Goroutine] Error unmarshaling response from Python: %v")
+			log.Printf("[Goroutine %s] Error unmarshaling response from Python: %v", req.ClientID, err)
 			return
 		}
 
-		log.Println("[Goroutine] Real Python call FINISHED.")
+		log.Printf("[Goroutine %s] Real Python call FINISHED.", req.ClientID)
 
 		jsonResult, err := json.Marshal(result)
 		if err != nil {
@@ -100,7 +101,11 @@ func assessHandler(hub *Hub, c *gin.Context) {
 			return
 		}
 
-		hub.broadcast <- jsonResult
+		privateMsg := &PrivateMessage{
+			ClientID: req.ClientID,
+			Payload:  jsonResult,
+		}
+		hub.sendPrivate <- privateMsg
 	}(request)
 
 	// Send an immediate "Accepted" response to React

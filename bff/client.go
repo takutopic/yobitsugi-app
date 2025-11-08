@@ -12,11 +12,8 @@ import (
 
 const (
 	pongWait = 60 * time.Second
-
 	pingPeriod = (pongWait * 9) / 10
-
 	writeWait = 10 * time.Second
-
 	maxMessageSize = 512
 )
 
@@ -35,6 +32,7 @@ type Client struct {
 	hub *Hub
 	conn *websocket.Conn
 	send chan []byte // A buffered channel for outbound messages
+	ID string
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -105,6 +103,13 @@ func (c *Client) writePump() {
 
 // ServeWs handles the WebSocket connection request from the peer.
 func ServeWs(hub *Hub, c *gin.Context) {
+	clientId := c.Query("clientId")
+	if clientId == "" {
+		log.Println("Failed to upgrade: clientId is required")
+		c.JSON(http.StatusBadRequest, "clientId query parameter is required")
+		return
+	}
+
 	// Upgrade the HTTP connection to a WebSocket connection.
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -113,7 +118,12 @@ func ServeWs(hub *Hub, c *gin.Context) {
 	}
 
 	// Create a new Client
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
+	client := &Client{
+		hub:  hub, 
+		conn: conn, 
+		send: make(chan []byte, 256),
+		ID:	  clientId,
+	}
 	// Register the new client with the hub
 	client.hub.register <- client
 
