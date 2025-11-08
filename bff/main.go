@@ -72,7 +72,7 @@ func assessHandler(hub *Hub, c *gin.Context) {
 			hub.sendPrivate <- privateMsg
 		}
 		
-		// Marshal the requst data
+		// Marshal the request data
 		jsonData, err := json.Marshal(req)
 		if err != nil {
 			sendErrorToClient("Failed to create request for Kantei", err)

@@ -68,7 +68,7 @@ function App() {
       try {
         const result: AssessmentResult = JSON.parse(event.data);
 
-        if (result.status == "ERROR") {
+        if (result.status === "ERROR") {
           console.error("Received error from backend:", result.reasoning);
           setAssessment(`Error: ${result.reasoning}`);
         } else {
@@ -86,7 +86,7 @@ function App() {
         setAssessment(`Error: Failed to parse message from server: ${event.data}`);
       }
     };
-    ws.onclose = () => console.log('WebScoket connection closed.');
+    ws.onclose = () => console.log('WebSocket connection closed.');
     ws.onerror = (error) => console.error('Websocket error:', error);
 
     // Clean up the connection when the component unmounts
