@@ -50,22 +50,16 @@ function App() {
 
   // useEffect handles the WebSocket connection.
   useEffect(() => {
-    // Create a WebSocket connection
+    // Create a WebSocket connection for a client
     const wsUrl = `ws://localhost:8080/ws?clientId=${myClientId}`;
     console.log(`Connecting to WebSocket as: ${myClientId}`);
-
     const ws = new WebSocket(wsUrl);
-    ws.onopen = () => {
-      console.log('WebSocket connection established.');
-    };
 
-    ws.onclose = () => {
-      console.log('WebSocket connection closed.');
-    };
+    ws.onopen = () => {console.log('WebSocket connection established.');};
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
+    ws.onclose = () => {console.log('WebSocket connection closed.');};
+
+    ws.onerror = (error) => {console.error('WebSocket error:', error);};
 
     ws.onmessage = (event) => {
       console.log('WebSocket message received:', event.data);
@@ -73,20 +67,26 @@ function App() {
 
       try {
         const result: AssessmentResult = JSON.parse(event.data);
-        const newAssessmentText = `
-          Status: ${result.status} | 
-          Assessed Truth: ${result.assessedTruth} | 
-          Confidence: ${result.confidence}% | 
-          Reasoning: ${result.reasoning}
-        `;
-        setAssessment(newAssessmentText);
+
+        if (result.status === "ERROR") {
+          console.error("Received error from backend:", result.reasoning);
+          setAssessment(`Error: ${result.reasoning}`);
+        } else {
+          const newAssessmentText = `
+            Status: ${result.status} | 
+            Assessed Truth: ${result.assessedTruth} | 
+            Confidence: ${result.confidence}% | 
+            Reasoning: ${result.reasoning}
+          `;
+          setAssessment(newAssessmentText);
+        }
         
       } catch (error) {
         console.error('Failed to parse WebSocket JSON:', error);
-        setAssessment(event.data);
+        setAssessment(`Error: Failed to parse message from server: ${event.data}`);
       }
     };
-    ws.onclose = () => console.log('WebScoket connection closed.');
+    ws.onclose = () => console.log('WebSocket connection closed.');
     ws.onerror = (error) => console.error('Websocket error:', error);
 
     // Clean up the connection when the component unmounts
