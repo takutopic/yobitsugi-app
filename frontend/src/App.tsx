@@ -29,7 +29,7 @@ interface AssessmentJob {
   ResultStatus: string;
   ResultAssessedTruth: boolean;
   ResultConfidence: number;
-  ResultReasoning: string,
+  ResultReasoning: string;
 }
 const myClientId = Math.random().toString(36).substring(2,10);
 
@@ -76,7 +76,7 @@ function App() {
       try {
         const response = await fetch(`http://localhost:8080/api/jobs?clientId=${myClientId}`);
         if (!response.ok) {
-          throw new Error('Failed to fetch job histroy');
+          throw new Error('Failed to fetch job history');
         }
         const data: AssessmentJob[] = await response.json();
         setJobs(data);
@@ -87,7 +87,7 @@ function App() {
     };
 
     fetchJobHistory();
-  }, [])
+  }, []);
 
   // useEffect handles the WebSocket connection.
   useEffect(() => {
@@ -195,7 +195,7 @@ function App() {
         ResultAssessedTruth: false,
         ResultConfidence: 0,
         ResultReasoning: "",
-      }
+      };
 
       setJobs(prevJobs => [newJob, ...prevJobs]);
       // Clear the form
@@ -212,7 +212,7 @@ function App() {
 
   const renderJob = (job: AssessmentJob) => {
     let resultColor ='black';
-    if (job.Status === 'PENDS') resultColor = 'gray';
+    if (job.Status === 'PENDING') resultColor = 'gray';
     if (job.ResultStatus === 'PASS') resultColor = 'green';
     if (job.ResultStatus === 'FAIL') resultColor = 'red';
     if (job.Status === 'ERROR') resultColor = 'red';
