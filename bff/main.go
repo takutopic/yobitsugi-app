@@ -30,6 +30,7 @@ type PatchRequest struct {
 
 // AssessmentResult defines the structure for the WebSocket broadcast
 type AssessmentResult struct {
+	ID			  uint 	 `json:"id"`
 	Status        string `json:"status"`
 	AssessedTruth bool   `json:"assessedTruth"`
 	Confidence    int    `json:"confidence"`
@@ -77,6 +78,7 @@ func assessHandler(hub *Hub, db *gorm.DB, c *gin.Context) {
 		sendErrorToClient := func(reason string, err error) {
 			log.Printf("[Goroutine %s] Error: %s. %v", req.ClientID, reason, err)
 			errorResult := AssessmentResult{
+				ID: currentJob.ID,
 				Status:	"ERROR",
 				AssessedTruth: false,
 				Confidence: 0,
@@ -142,6 +144,8 @@ func assessHandler(hub *Hub, db *gorm.DB, c *gin.Context) {
 			sendErrorToClient("Failed to parse Kantei response", err)
 			return
 		}
+
+		result.ID = currentJob.ID
 
 		log.Printf("[Goroutine %s] Real Python call FINISHED.", req.ClientID)
 
