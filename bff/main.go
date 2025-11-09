@@ -177,15 +177,15 @@ func assessHandler(hub *Hub, db *gorm.DB, c *gin.Context) {
 
 // getJobsHandler fetches all jobs for a specific client.
 func getJobsHandler(db *gorm.DB, c *gin.Context) {
-	clientId := c.Query("clientId")
-	if clientId == "" {
+	clientID := c.Query("clientId")
+	if clientID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "clientId query parameter is required"})
 		return
 	}
 
 	var jobs []AssessmentJob
 
-	result := db.Where("client_id = ?", clientId).Order("created_at desc").Find(&jobs)
+	result := db.Where("client_id = ?", clientID).Order("created_at desc").Find(&jobs)
 	if result.Error != nil {
 		log.Printf("Failed to fetch jobs from DB: %v", result.Error)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch job history"})
