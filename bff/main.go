@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // Message is a struct to define our JSON structure
@@ -38,7 +39,7 @@ type AssessmentResult struct {
 const pythonServiceURL = "http://localhost:8000/assess-kantei"
 
 // assessHandler handles the POST request to /api/assess
-func assessHandler(hub *Hub, c *gin.Context) {
+func assessHandler(hub *Hub, db *gorm.DB, c *gin.Context) {
 	var request PatchRequest
 
 	// Bind the incoming JSON from React to our struct.
@@ -49,12 +50,29 @@ func assessHandler(hub *Hub, c *gin.Context) {
 		return
 	}
 
+	// Create the initial job to the database
+	job := AssessmentJob{
+		ClientID: 		request.ClientID,
+		Status: 		"PENDING",
+		OriginalCode: 	request.OriginalCode,
+		PatchedCode: 	request.PatchedCode,
+		BugDescription: request.BugDescription,
+	}
+
+	// Save the PENDING job to the DB
+	if result := db.Create(&job); result.Error != nil {
+		log.Printf("Failed to create job in DB: %v", result.Error)
+		// Job is not saved.
+	}
+	log.Printf("Created job with ID: %d", job.ID)
+
+
 	// Log that we received the data
 	log.Printf("Received assessment request: BugDescription[len %d], OriginalCode[len %d], PatchedCode[len %d]",
 			len(request.BugDescription), len(request.OriginalCode), len(request.PatchedCode))
 
-	go func(req PatchRequest) {
-		log.Printf("[Goroutine %s] Starting READ Python call...", req.ClientID)
+	go func(req PatchRequest, currentJob AssessmentJob) {
+		log.Printf("[Goroutine %s] Starting READ Python call for JobID %d", req.ClientID, currentJob.ID)
 
 		sendErrorToClient := func(reason string, err error) {
 			log.Printf("[Goroutine %s] Error: %s. %v", req.ClientID, reason, err)
@@ -64,6 +82,14 @@ func assessHandler(hub *Hub, c *gin.Context) {
 				Confidence: 0,
 				Reasoning: fmt.Sprintf("%s (detail: %v)", reason, err),
 			}
+			
+			// Update the job in DB to ERROR
+			currentJob.Status = "ERROR"
+			currentJob.ResultReasoning = errorResult.Reasoning
+			if err := db.Save(&currentJob).Error; err != nil {
+				log.Printf("Failed to update job status: %v", err)
+			}
+
 			jsonResult, _ := json.Marshal(errorResult)
 			privateMsg := &PrivateMessage{
 				ClientID: req.ClientID,
@@ -119,6 +145,16 @@ func assessHandler(hub *Hub, c *gin.Context) {
 
 		log.Printf("[Goroutine %s] Real Python call FINISHED.", req.ClientID)
 
+		// Update the job in DB to COMPLETE
+		currentJob.Status = "COMPLETE"
+		currentJob.ResultStatus = result.Status
+		currentJob.ResultAssessmentTruth = result.AssessedTruth
+		currentJob.ResultConfidence = result.Confidence
+		currentJob.ResultReasoning = result.Reasoning
+		if err := db.Save(&currentJob).Error; err != nil {
+			log.Printf("Failed to update job status: %v", err)
+		}
+
 		// Marshal the *real* result for broadcasting
 		jsonResult, err := json.Marshal(result)
 		if err != nil {
@@ -132,11 +168,11 @@ func assessHandler(hub *Hub, c *gin.Context) {
 			Payload:  jsonResult,
 		}
 		hub.sendPrivate <- privateMsg
-	}(request)
+	}(request, job)
 
 	// Send an immediate "Accepted" response to React
 	// This tells React "We got your job, and we are working on it."
-	c.JSON(http.StatusAccepted, gin.H{"status": "Job accepted and processing"})
+	c.JSON(http.StatusAccepted, gin.H{"status": "Job accepted and processing", "jobID": job.ID})
 }
 
 // rootHandler handles requests to the / endpoint.
@@ -160,6 +196,9 @@ func main() {
 	config.AllowOrigins = []string{"http://localhost:5173", "http://127.0.0.1:5173"}
 	router.Use(cors.New(config))
 
+	// Init DB
+	db := InitDatabase()
+
 	// Create and run the Hub
 	hub := newHub()
 	go hub.run() // Start the hub's main loop in a goroutine
@@ -168,7 +207,7 @@ func main() {
 	router.GET("/", rootHandler)
 	router.GET("/api/hello", helloHandler)
 	router.POST("/api/assess", func(c *gin.Context) {
-		assessHandler(hub, c)
+		assessHandler(hub, db, c)
 	})
 
 	// Add the new WebSocket route
