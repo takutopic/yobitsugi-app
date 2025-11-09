@@ -167,3 +167,5 @@ ehthumbs.db
 
 # JetBrains (GoLand, WebStorm)
 .idea/
+
+*.db
