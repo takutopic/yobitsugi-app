@@ -175,6 +175,26 @@ func assessHandler(hub *Hub, db *gorm.DB, c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"status": "Job accepted and processing", "jobID": job.ID})
 }
 
+// getJobsHandler fetches all jobs for a specific client.
+func getJobsHandler(db *gorm.DB, c *gin.Context) {
+	clientId := c.Query("clientId")
+	if clientId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "clientId query parameter is required"})
+		return
+	}
+
+	var jobs []AssessmentJob
+
+	result := db.Where("client_id = ?", clientId).Order("created_at desc").Find(&jobs)
+	if result.Error != nil {
+		log.Printf("Failed to fetch jobs from DB: %v", result.Error)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch job history"})
+		return
+	}
+
+	c.JSON(http.StatusOK, jobs)
+}
+
 // rootHandler handles requests to the / endpoint.
 func rootHandler(c *gin.Context) {
 	c.String(http.StatusOK, "This is the homepage! 🏠 (Now with Gin!)")
@@ -194,6 +214,7 @@ func main() {
 	// Setup CORS Middleware
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{"http://localhost:5173", "http://127.0.0.1:5173"}
+	config.AllowMethods = []string{"GET", "POST", "OPTIONS"}
 	router.Use(cors.New(config))
 
 	// Init DB
@@ -206,7 +227,10 @@ func main() {
 	// Define the routes
 	router.GET("/", rootHandler)
 	router.GET("/api/hello", helloHandler)
-	router.POST("/api/assess", func(c *gin.Context) {
+	router.GET("/api/jobs", func(c *gin.Context) {
+		getJobsHandler(db, c)
+	})
+	router.POST("/api/assess-kantei", func(c *gin.Context) {
 		assessHandler(hub, db, c)
 	})
 
