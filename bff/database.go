@@ -20,7 +20,7 @@ type AssessmentJob struct {
 
 	ResultStatus		  string
 	ResultAssessmentTruth bool
-	ResutlConfidence	  int
+	ResultConfidence	  int
 	ResultReasoning		  string
 }
 

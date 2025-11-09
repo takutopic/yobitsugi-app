@@ -39,7 +39,7 @@ type AssessmentResult struct {
 const pythonServiceURL = "http://localhost:8000/assess-kantei"
 
 // assessHandler handles the POST request to /api/assess
-func assessHandler(hub *Hub, db *gorm.DB,  c *gin.Context) {
+func assessHandler(hub *Hub, db *gorm.DB, c *gin.Context) {
 	var request PatchRequest
 
 	// Bind the incoming JSON from React to our struct.
@@ -86,7 +86,9 @@ func assessHandler(hub *Hub, db *gorm.DB,  c *gin.Context) {
 			// Update the job in DB to ERROR
 			currentJob.Status = "ERROR"
 			currentJob.ResultReasoning = errorResult.Reasoning
-			db.Save(&currentJob)
+			if err := db.Save(&currentJob).Error; err != nil {
+				log.Printf("Failed to update job status: %v", err)
+			}
 
 			jsonResult, _ := json.Marshal(errorResult)
 			privateMsg := &PrivateMessage{
@@ -147,9 +149,11 @@ func assessHandler(hub *Hub, db *gorm.DB,  c *gin.Context) {
 		currentJob.Status = "COMPLETE"
 		currentJob.ResultStatus = result.Status
 		currentJob.ResultAssessmentTruth = result.AssessedTruth
-		currentJob.ResutlConfidence = result.Confidence
+		currentJob.ResultConfidence = result.Confidence
 		currentJob.ResultReasoning = result.Reasoning
-		db.Save(&currentJob)
+		if err := db.Save(&currentJob).Error; err != nil {
+			log.Printf("Failed to update job status: %v", err)
+		}
 
 		// Marshal the *real* result for broadcasting
 		jsonResult, err := json.Marshal(result)
