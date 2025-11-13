@@ -179,13 +179,14 @@ func assessHandler(hub *Hub, db *gorm.DB, c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"status": "Job accepted and processing", "jobID": job.ID})
 }
 
-// getJobByIdHandler fetches a single job by its ID, ensuring it belongs to the correct client.
-func getJobByIdHandler(db *gorm.DB, c *gin.Context) {
+// getJobByIDHandler fetches a single job by its ID, ensuring it belongs to the correct client.
+func getJobByIDHandler(db *gorm.DB, c *gin.Context) {
 	jobID := c.Param("id")
 
 	clientID := c.Query("clientId")
 	if clientID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "clientId query parameter is required"})
+		return
 	}
 
 	var job AssessmentJob
@@ -256,10 +257,14 @@ func main() {
 
 	// Define the routes
 	router.GET("/", rootHandler)
-	router.GET("/api/hello", helloHandler)
 	router.GET("/api/jobs", func(c *gin.Context) {
 		getJobsHandler(db, c)
 	})
+
+	router.GET("/api/job/:id", func(c *gin.Context) {
+		getJobByIDHandler(db, c)
+	})
+
 	router.POST("/api/assess-kantei", func(c *gin.Context) {
 		assessHandler(hub, db, c)
 	})
