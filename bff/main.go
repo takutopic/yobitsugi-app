@@ -179,6 +179,32 @@ func assessHandler(hub *Hub, db *gorm.DB, c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"status": "Job accepted and processing", "jobID": job.ID})
 }
 
+// getJobByIdHandler fetches a single job by its ID, ensuring it belongs to the correct client.
+func getJobByIdHandler(db *gorm.DB, c *gin.Context) {
+	jobID := c.Param("id")
+
+	clientID := c.Query("clientId")
+	if clientID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "clientId query parameter is required"})
+	}
+
+	var job AssessmentJob
+
+	result := db.Where("id = ? AND client_id = ?", jobID, clientID).First(&job)
+
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found or you do not have permission"})
+			return
+		}
+		log.Printf("Failed to fetch job from DB: %v", result.Error)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch job"})
+		return
+	}
+	
+	c.JSON(http.StatusOK, job)
+}
+
 // getJobsHandler fetches all jobs for a specific client.
 func getJobsHandler(db *gorm.DB, c *gin.Context) {
 	clientID := c.Query("clientId")
