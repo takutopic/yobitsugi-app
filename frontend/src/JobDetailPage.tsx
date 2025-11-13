@@ -5,32 +5,32 @@ import { myClientId, API_URL } from './shared'
 
 export function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
-	const [job, setJob] = useState<AssessmentJob | null>(null);
-	const [error, setError] = useState<string | null>(null);
-
-	useEffect(() => {
+	  const [job, setJob] = useState<AssessmentJob | null>(null);
+	  const [error, setError] = useState<string | null>(null);
+	
+	  useEffect(() => {
 		const fetchJobDetails = async () => {
-			try {
-				const response = await fetch(`${API_URL}/api/jobs/${id}?clientId=${myClientId}`);
-				if (!response.ok) {
-					if(response.status == 404) {
-						throw new Error('Job not found or your do not have permission.');
+		  try {
+			const response = await fetch(`${API_URL}/api/jobs/${id}?clientId=${myClientId}`);
+			if (!response.ok) {
+					if(response.status === 404) {
+				throw new Error('Job not found or you do not have permission.');
 					}
-					throw new Error('Failed to fetch job details');
-				}
-				const data: AssessmentJob = await response.json();
-				setJob(data);
-			} catch (err) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError('An unexpected error occurred');
-        }
-      }
+			  throw new Error('Failed to fetch job details');
+			}
+			const data: AssessmentJob = await response.json();
+			setJob(data);
+		  } catch (err) {
+			if (err instanceof Error) {
+			  setError(err.message);
+			} else {
+			  setError('An unexpected error occurred');
+			}
+		  }
 		};
 		
 		fetchJobDetails();
-	}, [id]);
+	  }, [id]);
 
 	if (error) {
 		return (

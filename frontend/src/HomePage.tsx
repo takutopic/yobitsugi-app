@@ -96,7 +96,7 @@ export function HomePage() {
       }
     };
     ws.onclose = () => console.log('WebSocket connection closed.');
-    ws.onerror = (error) => console.error('Websocket error:', error);
+    ws.onerror = (error) => console.error('WebSocket error:', error);
 
     // Clean up the connection when the component unmounts
     return () => {
@@ -163,7 +163,7 @@ export function HomePage() {
   };
 
   const renderJob = (job: AssessmentJob) => {
-    let resultColor ='black';
+    let resultColor = 'black';
     if (job.Status === 'PENDING') resultColor = 'gray';
     if (job.ResultStatus === 'PASS') resultColor = 'green';
     if (job.ResultStatus === 'FAIL') resultColor = 'red';
