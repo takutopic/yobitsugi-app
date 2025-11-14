@@ -32,6 +32,5 @@ services:
 
       CORPUS_DIR: /data/corpus
       RANKING_MODEL_PATH: /data/corpus/ranking_model.joblib
-      PROMPTS_DIR: /app/api_prompts
     volumes:
-      - ../Yobitsugi/data/corpus:/data/corpus:ro
+      - ../yobitsugi/data/corpus:/data/corpus:ro
