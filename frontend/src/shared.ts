@@ -1,17 +1,18 @@
 export const myClientId = Math.random().toString(36).substring(2,10);
 export const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
-// Interface for assessment results
+
+
 export interface AssessmentResult {
-  id: number
+  id: string
   status: string;
   assessedTruth: boolean;
   confidence: number;
   reasoning: string;
 }
 
+
 export interface AssessmentJob {
-  // GORM model fields
-  ID: number;
+  ID: string;
   CreatedAt: string;
   UpdatedAt: string;
 
