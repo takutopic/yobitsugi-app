@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  # 1. Go BFF 
+  bff:
+    build:
+      context: ./bff
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./.env 
+    environment:
+      PYTHON_SERVICE_URL: "http://yobitsugi:8000/assess-kantei" 
+      PORT: "8080"
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+    depends_on:
+      - yobitsugi
+
+  # 2. Python Yobitsugi (External Repository)
+  yobitsugi:
+    build:
+      context: ../Yobitsugi
+      dockerfile: api/Dockerfile 
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./.env
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+
+      CORPUS_DIR: /data/corpus
+      RANKING_MODEL_PATH: /data/corpus/ranking_model.joblib
+      PROMPTS_DIR: /app/api_prompts
+    volumes:
+      - ../Yobitsugi/data/corpus:/data/corpus:ro

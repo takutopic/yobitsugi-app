@@ -1,5 +1,4 @@
-FROM golang:1.25-alpine AS builder
-
+FROM golang:1.22-alpine AS builder
 WORKDIR /app
 
 # copy dependencies
@@ -13,7 +12,7 @@ COPY . .
 # create the executable "server"
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server .
 
-FROM gcr.io/distroless/static-debian11
+FROM gcr.io/distroless/static-debian12
 
 # copy "server"
 COPY --from=stage /app/server /
