@@ -91,7 +91,7 @@ func assessHandler(hub *Hub, fsClient *firestore.Client, c *gin.Context) {
 		return
 	}
 	job.ID = docRef.ID
-	log.Printf("Created job with ID: %d", job.ID)
+	log.Printf("Created job with ID: %s", job.ID)
 
 
 	// Log that we received the data
@@ -99,7 +99,7 @@ func assessHandler(hub *Hub, fsClient *firestore.Client, c *gin.Context) {
 			len(request.BugDescription), len(request.OriginalCode), len(request.PatchedCode))
 
 	go func(req PatchRequest, currentJobDocID string) {
-		log.Printf("[Goroutine %s] Starting REAL Python call for JobID %d", req.ClientID, currentJobDocID)
+		log.Printf("[Goroutine %s] Starting READ Python call for JobID %s", req.ClientID, currentJobDocID)
 		jobDoc := fsClient.Collection(jobsCollection).Doc(currentJobDocID)
 
 		sendErrorToClient := func(reason string, err error) {
@@ -256,7 +256,7 @@ func getJobsHandler(fsClient *firestore.Client, c *gin.Context) {
 	ctx := context.Background()
 
 	iter := fsClient.Collection(jobsCollection).
-		Where("ClientId", "==", clientID).
+		Where("clientId", "==", clientID).
 		OrderBy("createdAt", firestore.Desc).
 		Documents(ctx)
 
