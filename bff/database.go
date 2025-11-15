@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"gorm.io/driver/postgres" // <-- ADD Postgres driver
 	"gorm.io/driver/sqlite"   // <-- Keep SQLite driver
@@ -31,8 +32,8 @@ func InitDatabase() *gorm.DB {
 	var err error
 
 	dsn := os.Getenv("DATABASE_URL")
-	if dsn != "" {
-		log.Println("DATABASE_URL not set, failling back to SQLite.")
+	if dsn == "" {
+		log.Println("DATABASE_URL not set, falling back to SQLite.")
 		db, err = gorm.Open(sqlite.Open("yobitsugi.db"), &gorm.Config{})
 		if err != nil {
 			log.Fatal("Failed to connect to SQLite database:", err)
@@ -44,8 +45,7 @@ func InitDatabase() *gorm.DB {
 		if err != nil {
 			log.Fatal("Failed to connect to PostgreSQL database:", err)
 		}
-		log.Println("PostgreSQL database connection established.")
-	}	
+	}
 
 	log.Println("Running database auto-migration...")
 	if err := db.AutoMigrate(&AssessmentJob{}); err != nil {
