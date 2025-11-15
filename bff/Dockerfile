@@ -15,7 +15,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server .
 FROM gcr.io/distroless/static-debian12
 
 # copy "server"
-COPY --from=stage /app/server /
+COPY --from=builder /app/server /
 
 # Listen the port "8080" for Yobitsugi
 EXPOSE 8080

@@ -13,7 +13,7 @@ services:
     environment:
       PYTHON_SERVICE_URL: "http://yobitsugi:8000/assess-kantei" 
       PORT: "8080"
-      DATABASE)RUL: ${DATABASE_URL}
+      DATABASE_URL: ${DATABASE_URL}
     depends_on:
       - yobitsugi
       - db
@@ -36,18 +36,18 @@ services:
     volumes:
       - ../yobitsugi/data/corpus:/data/corpus:ro
 
-    # 3. PostgreSQL Database
-    db:
-      image: postgres:15-alpine
-      restart: always
-      environment:
-        POSTGRES_USER: ${POSTGRES_USER}
-        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-        POSTGRES_DB: ${POSTGRES_DB}
-      ports:
-        - "5432:5432"
-      volumes:
-        - postgres_data:/var/lib/postgresql/data
+  # 3. PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
 volumes:
   postgres_data:
