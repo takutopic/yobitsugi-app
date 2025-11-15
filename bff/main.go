@@ -3,17 +3,16 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"time"
-	
-	"cloud.google.com/go/firestore"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // Message is a struct to define our JSON structure
@@ -31,51 +30,29 @@ type PatchRequest struct {
 
 // AssessmentResult defines the structure for the WebSocket broadcast
 type AssessmentResult struct {
-	ID			  string `json:"id"`
+	ID			  uint 	 `json:"id"`
 	Status        string `json:"status"`
 	AssessedTruth bool   `json:"assessedTruth"`
 	Confidence    int    `json:"confidence"`
 	Reasoning     string `json:"reasoning"`
 }
 
-// AssessmentJob defines the structure for the client job
-type AssessmentJob struct {
-	ID 					string  `firestore:"-" json:"ID"`
-	CreatedAt 		 time.Time	`firestore:"createdAt" json:"CreatedAt"`
-	UpdatedAt 		 time.Time	`firestore:"updatedAt" json:"UpdatedAt"`
-
-	ClientID 			string	`firestore:"clientId" json:"ClientID"`
-	Status 				string	`firestore:"status" json:"Status"`
-
-	OriginalCode 		string	`firestore:"originalCode" json:"OriginalCode"`
-	PatchedCode 		string	`firestore:"patchedCode" json:"PatchedCode"`
-	BugDescription 		string	`firestore:"bugDescription" json:"BugDescription"`
-
-	ResultStatus 		string	`firestore:"resultStatus,omitempty" json:"ResultStatus"`
-	ResultAssessedTruth bool	`firestore:"resultAssessedTruth,omitempty" json:"ResultAssessedTruth"`
-	ResultConfidence 	int		`firestore:"resultConfidence,omitempty" json:"ResultConfidence"`
-	ResultReasoning 	string	`firestore:"resultReasoning,omitempty" json:"ResultReasoning"`
-}
-
 const pythonServiceURL = "http://localhost:8000/assess-kantei"
-const jobsCollection = "jobs"
 
 // assessHandler handles the POST request to /api/assess
-func assessHandler(hub *Hub, fsClient *firestore.Client, c *gin.Context) {
+func assessHandler(hub *Hub, db *gorm.DB, c *gin.Context) {
 	var request PatchRequest
+
+	// Bind the incoming JSON from React to our struct.
+	// If binding fails, return a 400 Bad Request.
 	if err := c.BindJSON(&request); err != nil {
 		log.Println("Error binding JSON:", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	log.Printf("Received assessment request from ClientID: %s", request.ClientID)
-	ctx := context.Background()
-
 	// Create the initial job to the database
 	job := AssessmentJob{
-		CreatedAt:		time.Now(),
-		UpdatedAt:		time.Now(),
 		ClientID: 		request.ClientID,
 		Status: 		"PENDING",
 		OriginalCode: 	request.OriginalCode,
@@ -83,43 +60,36 @@ func assessHandler(hub *Hub, fsClient *firestore.Client, c *gin.Context) {
 		BugDescription: request.BugDescription,
 	}
 
-	// Add the PENDING job to Firestore with unique ID.
-	docRef, _, err := fsClient.Collection(jobsCollection).Add(ctx, job)
-	if err != nil {
-		log.Printf("Failed to create job in Firestore: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
-		return
+	// Save the PENDING job to the DB
+	if result := db.Create(&job); result.Error != nil {
+		log.Printf("Failed to create job in DB: %v", result.Error)
+		// Job is not saved.
 	}
-	job.ID = docRef.ID
-	log.Printf("Created job with ID: %s", job.ID)
+	log.Printf("Created job with ID: %d", job.ID)
 
 
 	// Log that we received the data
 	log.Printf("Received assessment request: BugDescription[len %d], OriginalCode[len %d], PatchedCode[len %d]",
 			len(request.BugDescription), len(request.OriginalCode), len(request.PatchedCode))
 
-	go func(req PatchRequest, currentJobDocID string) {
-		log.Printf("[Goroutine %s] Starting READ Python call for JobID %s", req.ClientID, currentJobDocID)
-		jobDoc := fsClient.Collection(jobsCollection).Doc(currentJobDocID)
+	go func(req PatchRequest, currentJob AssessmentJob) {
+		log.Printf("[Goroutine %s] Starting READ Python call for JobID %d", req.ClientID, currentJob.ID)
 
 		sendErrorToClient := func(reason string, err error) {
 			log.Printf("[Goroutine %s] Error: %s. %v", req.ClientID, reason, err)
-
-			errorReasoning := fmt.Sprintf("%s (detail: %v)", reason, err)
 			errorResult := AssessmentResult{
-				ID: currentJobDocID,
+				ID: currentJob.ID,
 				Status:	"ERROR",
-				Reasoning: errorReasoning,
+				AssessedTruth: false,
+				Confidence: 0,
+				Reasoning: fmt.Sprintf("%s (detail: %v)", reason, err),
 			}
 			
-			// Update the job in Firestore to ERROR
-			_, updateErr := jobDoc.Set(ctx, map[string]interface{}{
-				"status":		   "ERROR",
-				"resultReasoning": errorReasoning,
-				"updatedAt":	   time.Now(),
-			}, firestore.MergeAll)
-			if updateErr != nil {
-				log.Printf("[Goroutine %s] Failed to update job to ERROR: %v", req.ClientID, updateErr)
+			// Update the job in DB to ERROR
+			currentJob.Status = "ERROR"
+			currentJob.ResultReasoning = errorResult.Reasoning
+			if err := db.Save(&currentJob).Error; err != nil {
+				log.Printf("Failed to update job status: %v", err)
 			}
 
 			jsonResult, _ := json.Marshal(errorResult)
@@ -174,21 +144,19 @@ func assessHandler(hub *Hub, fsClient *firestore.Client, c *gin.Context) {
 			sendErrorToClient("Failed to parse Kantei response", err)
 			return
 		}
-		result.ID = currentJobDocID
+
+		result.ID = currentJob.ID
 
 		log.Printf("[Goroutine %s] Real Python call FINISHED.", req.ClientID)
 
 		// Update the job in DB to COMPLETE
-		_, updateErr := jobDoc.Set(ctx, map[string]interface{}{
-			"status":			   "COMPLETE",
-			"resultStatus":		   result.Status,
-			"resultAssessedTruth": result.AssessedTruth,
-			"resultConfidence":	   result.Confidence,
-			"resultReasoning":	   result.Reasoning,
-			"updatedAt":		   time.Now(),
-		}, firestore.MergeAll)
-		if updateErr != nil {
-			log.Printf("[Goroutine %s] Failed to update job to COMPLETE: %v", req.ClientID, updateErr)
+		currentJob.Status = "COMPLETE"
+		currentJob.ResultStatus = result.Status
+		currentJob.ResultAssessmentTruth = result.AssessedTruth
+		currentJob.ResultConfidence = result.Confidence
+		currentJob.ResultReasoning = result.Reasoning
+		if err := db.Save(&currentJob).Error; err != nil {
+			log.Printf("Failed to update job status: %v", err)
 		}
 
 		// Marshal the *real* result for broadcasting
@@ -204,14 +172,15 @@ func assessHandler(hub *Hub, fsClient *firestore.Client, c *gin.Context) {
 			Payload:  jsonResult,
 		}
 		hub.sendPrivate <- privateMsg
-	}(request, job.ID)
+	}(request, job)
 
 	// Send an immediate "Accepted" response to React
+	// This tells React "We got your job, and we are working on it."
 	c.JSON(http.StatusAccepted, gin.H{"status": "Job accepted and processing", "jobID": job.ID})
 }
 
 // getJobByIDHandler fetches a single job by its ID, ensuring it belongs to the correct client.
-func getJobByIDHandler(fsClient *firestore.Client, c *gin.Context) {
+func getJobByIDHandler(db *gorm.DB, c *gin.Context) {
 	jobID := c.Param("id")
 
 	clientID := c.Query("clientId")
@@ -220,24 +189,17 @@ func getJobByIDHandler(fsClient *firestore.Client, c *gin.Context) {
 		return
 	}
 
-	ctx := context.Background()
-	doc, err := fsClient.Collection(jobsCollection).Doc(jobID).Get(ctx)
-	if err != nil {
-		log.Printf("Failed to fetch job from Firestore: %v", err)
-		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
-		return
-	}
-
 	var job AssessmentJob
-	if err := doc.DataTo(&job); err != nil {
-		log.Printf("Failed to map job data: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse job data"})
-		return
-	}
-	job.ID = doc.Ref.ID
 
-	if job.ClientID != clientID {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found or you do not have permission"})
+	result := db.Where("id = ? AND client_id = ?", jobID, clientID).First(&job)
+
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Job not found or you do not have permission"})
+			return
+		}
+		log.Printf("Failed to fetch job from DB: %v", result.Error)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch job"})
 		return
 	}
 	
@@ -245,7 +207,7 @@ func getJobByIDHandler(fsClient *firestore.Client, c *gin.Context) {
 }
 
 // getJobsHandler fetches all jobs for a specific client.
-func getJobsHandler(fsClient *firestore.Client, c *gin.Context) {
+func getJobsHandler(db *gorm.DB, c *gin.Context) {
 	clientID := c.Query("clientId")
 	if clientID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "clientId query parameter is required"})
@@ -253,28 +215,12 @@ func getJobsHandler(fsClient *firestore.Client, c *gin.Context) {
 	}
 
 	var jobs []AssessmentJob
-	ctx := context.Background()
 
-	iter := fsClient.Collection(jobsCollection).
-		Where("clientId", "==", clientID).
-		OrderBy("createdAt", firestore.Desc).
-		Documents(ctx)
-
-	docs, err := iter.GetAll()
-	if err != nil {
-		log.Printf("Failed to fetch jobs from Firestore: %v", err)
+	result := db.Where("client_id = ?", clientID).Order("created_at desc").Find(&jobs)
+	if result.Error != nil {
+		log.Printf("Failed to fetch jobs from DB: %v", result.Error)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch job history"})
 		return
-	}
-
-	for _, doc := range docs {
-		var job AssessmentJob
-		if err := doc.DataTo(&job); err != nil {
-			log.Printf("Failed to map job data: %v", err)
-			continue
-		}
-		job.ID = doc.Ref.ID
-		jobs = append(jobs, job)
 	}
 
 	c.JSON(http.StatusOK, jobs)
@@ -293,8 +239,6 @@ func helloHandler(c *gin.Context) {
 }
 
 func main() {
-	ctx := context.Background()
-
 	// Create a default Gin router
 	router := gin.Default()
 
@@ -304,8 +248,8 @@ func main() {
 	config.AllowMethods = []string{"GET", "POST", "OPTIONS"}
 	router.Use(cors.New(config))
 
-	// Init Firestore
-	fsClient := InitFirestore(ctx)
+	// Init DB
+	db := InitDatabase()
 
 	// Create and run the Hub
 	hub := newHub()
@@ -314,15 +258,15 @@ func main() {
 	// Define the routes
 	router.GET("/", rootHandler)
 	router.GET("/api/jobs", func(c *gin.Context) {
-		getJobsHandler(fsClient, c)
+		getJobsHandler(db, c)
 	})
 
 	router.GET("/api/job/:id", func(c *gin.Context) {
-		getJobByIDHandler(fsClient, c)
+		getJobByIDHandler(db, c)
 	})
 
 	router.POST("/api/assess-kantei", func(c *gin.Context) {
-		assessHandler(hub, fsClient, c)
+		assessHandler(hub, db, c)
 	})
 
 	// Add the new WebSocket route

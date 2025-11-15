@@ -1,27 +1,41 @@
 package main
 
 import (
-	"context"
 	"log"
-	"os"
 
-	"cloud.google.com/go/firestore"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
-// InitFirestore initializes the Firestore client.
-// It relies on the GOOGLE_APPLICATION_CREDENTIALS environment variable
-// being set to find your service account JSON key.
-func InitFirestore(ctx context.Context) *firestore.Client {
-	projectID := os.Getenv("GCP_PROJECT_ID")
-	if projectID == "" {
-		log.Fatal("GCP_PROJECT_ID environment variable is not set.")
-	}
+// AssessmentJob is the GORM model for the database table.
+type AssessmentJob struct {
+	gorm.Model
+	
+	ClientID string `gorm:"index"`
+	Status 	 string // "PENDING", "COMPLETE", "ERROR"
+	
+	OriginalCode	string
+	PatchedCode 	string
+	BugDescription  string
 
-	client, err := firestore.NewClient(ctx, projectID)
+	ResultStatus		  string
+	ResultAssessmentTruth bool
+	ResultConfidence	  int
+	ResultReasoning		  string
+}
+
+// InitDatabase initializes the SQLite database connection and runs AutoMigrate.
+func InitDatabase() *gorm.DB {
+	db, err := gorm.Open(sqlite.Open("yobitsugi.db"), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("Failed to create Firestore client: %v", err)
+		log.Fatal("Failed to connect to database:", err)
 	}
 
-	log.Println("Firestore client initialized successfully.")
-	return client
+	log.Println("Database connection established.")
+
+	log.Println("Running database auto-migration...")
+	if err := db.AutoMigrate(&AssessmentJob{}); err != nil {
+		log.Fatal("Failed to auto-migrate database:", err)
+	}
+	return db
 }
