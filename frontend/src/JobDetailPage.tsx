@@ -11,7 +11,7 @@ export function JobDetailPage() {
 	  useEffect(() => {
 		const fetchJobDetails = async () => {
 		  try {
-			const response = await fetch(`${API_URL}/api/jobs/${id}?clientId=${myClientId}`);
+			const response = await fetch(`${API_URL}/api/job/${id}?clientId=${myClientId}`);
 			if (!response.ok) {
 					if(response.status === 404) {
 				throw new Error('Job not found or you do not have permission.');
@@ -60,7 +60,7 @@ export function JobDetailPage() {
 			{job.Status === 'COMPLETE' && (
 				<div>
 					<h3>Assessment Result</h3>
-					<pre style={{ backgroundColor: '#f0f0f0', padding: '10px' }}>
+					<pre style={{ padding: '10px' }}>
 						Status: {job.Status}<br />
 						Assessed Truth: {job.ResultAssessedTruth}<br />
 						Confidence: {job.ResultConfidence}<br />

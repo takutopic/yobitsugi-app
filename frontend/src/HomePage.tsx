@@ -3,13 +3,116 @@ import { Link } from 'react-router-dom'
 import type { AssessmentJob, AssessmentResult } from './shared'
 import { myClientId, API_URL } from './shared'
 
+const FORM_STORAGE_KEY = 'yobitsugi-form-state';
+const JOBS_STORAGE_KEY = 'yobitsugi-job-history';
+
+type StoredFormState = {
+  bugDescription: string;
+  originalCode: string;
+  patchedCode: string;
+};
+
+const defaultFormState: StoredFormState = {
+  bugDescription: '',
+  originalCode: '',
+  patchedCode: '',
+};
+
+let cachedFormState: StoredFormState | null = null;
+let cachedJobsState: AssessmentJob[] | null = null;
+
+const isBrowserEnv = () => typeof window !== 'undefined' && !!window.localStorage;
+
+const loadFormFromStorage = (): StoredFormState => {
+  if (cachedFormState) {
+    return cachedFormState;
+  }
+
+  if (!isBrowserEnv()) {
+    cachedFormState = { ...defaultFormState };
+    return cachedFormState;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(FORM_STORAGE_KEY);
+    if (!raw) {
+      cachedFormState = { ...defaultFormState };
+    } else {
+      const parsed = JSON.parse(raw) as Partial<StoredFormState>;
+      cachedFormState = { ...defaultFormState, ...parsed };
+    }
+  } catch (error) {
+    console.warn('Failed to read stored form state:', error);
+    cachedFormState = { ...defaultFormState };
+  }
+
+  return cachedFormState;
+};
+
+const loadJobsFromStorage = (): AssessmentJob[] => {
+  if (cachedJobsState) {
+    return [...cachedJobsState];
+  }
+
+  if (!isBrowserEnv()) {
+    cachedJobsState = [];
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(JOBS_STORAGE_KEY);
+    if (!raw) {
+      cachedJobsState = [];
+    } else {
+      const parsed = JSON.parse(raw);
+      cachedJobsState = Array.isArray(parsed) ? parsed : [];
+    }
+  } catch (error) {
+    console.warn('Failed to read stored jobs:', error);
+    cachedJobsState = [];
+  }
+
+  return [...cachedJobsState];
+};
+
+const persistFormToStorage = (state: StoredFormState) => {
+  if (!isBrowserEnv()) {
+    return;
+  }
+  try {
+    window.localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    console.warn('Failed to persist form state:', error);
+  }
+};
+
+const persistJobsToStorage = (jobs: AssessmentJob[]) => {
+  if (!isBrowserEnv()) {
+    return;
+  }
+  try {
+    window.localStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify(jobs));
+  } catch (error) {
+    console.warn('Failed to persist jobs:', error);
+  }
+};
+
 export function HomePage() {
+  const storedForm = loadFormFromStorage();
   const [message, setMessage] = useState('Loading message from Go...');
-  const [jobs, setJobs] = useState<AssessmentJob[]>([]);
-  const [bugDescription, setBugDescription] = useState('');
-  const [originalCode, setOriginalCode] = useState('');
-  const [patchedCode, setPatchedCode] = useState('');
+  const [jobs, setJobs] = useState<AssessmentJob[]>(() => loadJobsFromStorage());
+  const [bugDescription, setBugDescription] = useState(storedForm.bugDescription);
+  const [originalCode, setOriginalCode] = useState(storedForm.originalCode);
+  const [patchedCode, setPatchedCode] = useState(storedForm.patchedCode);
   const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    persistFormToStorage({ bugDescription, originalCode, patchedCode });
+  }, [bugDescription, originalCode, patchedCode]);
+
+  useEffect(() => {
+    persistJobsToStorage(jobs);
+  }, [jobs]);
 
   // useEffect handles the initial "hello" fetch.
   useEffect(() => {
@@ -133,8 +236,15 @@ export function HomePage() {
       const data = await response.json();
       console.log('Job accepted by server:', data.status);
 
+      // API currently returns the identifier as `jobID`; fall back to `jobId` for safety
+      const jobIdFromApi = data.jobID ?? data.jobId;
+      const jobId = Number(jobIdFromApi);
+      if (!jobIdFromApi || Number.isNaN(jobId)) {
+        throw new Error('Server response missing job ID');
+      }
+
       const newJob: AssessmentJob = {
-        ID: data.jobId,
+        ID: jobId,
         CreatedAt: new Date().toISOString(),
         UpdatedAt: new Date().toISOString(),
         ClientID: myClientId,
@@ -173,10 +283,10 @@ export function HomePage() {
         <p><strong>Job ID: {job.ID}</strong> (Submitted: {new Date(job.CreatedAt).toLocaleString()})</p>
         <p><strong>Status: <span style={{ color: resultColor, fontWeight: 'bold' }}>{job.Status}</span></strong></p>
         {job.Status === 'COMPLETE' && (
-          <pre style={{ backgroundColor: '#f0f0f0', padding: '10px' }}>
+          <pre style={{ padding: '10px' }}>
             Status: {job.ResultStatus} | 
-            Assessed Truth: {job.ResultAssessedTruth.toString()} | 
-            Confidence: {job.ResultConfidence}% | 
+            Assessed Truth: {String(job.ResultAssessedTruth)} | 
+            Confidence: {job.ResultConfidence} | 
             Reasoning: {job.ResultReasoning}
           </pre>
         )}
