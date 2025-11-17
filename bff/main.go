@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -38,7 +39,14 @@ type AssessmentResult struct {
 	Reasoning     string `json:"reasoning"`
 }
 
-const pythonServiceURL = "http://localhost:8000/assess-kantei"
+var pythonServiceURL = getPythonServiceURL()
+
+func getPythonServiceURL() string {
+	if url := os.Getenv("PYTHON_SERVICE_URL"); url != "" {
+		return url
+	}
+	return "http://localhost:8000/assess-kantei"
+}
 
 // assessHandler handles the POST request to /api/assess
 func assessHandler(hub *Hub, db *gorm.DB, c *gin.Context) {
@@ -240,10 +248,11 @@ func helloHandler(c *gin.Context) {
 }
 
 func main() {
-	// Load environment variables from .env file
+	// Load local overrides when available; containers already receive env vars via docker-compose
 	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file, using environment variables.")
+		log.Println(".env file not found, relying on existing environment variables")
 	}
+	pythonServiceURL = getPythonServiceURL()
 
 	// Create a default Gin router
 	router := gin.Default()
@@ -263,6 +272,7 @@ func main() {
 
 	// Define the routes
 	router.GET("/", rootHandler)
+	router.GET("/api/hello", helloHandler)
 	router.GET("/api/jobs", func(c *gin.Context) {
 		getJobsHandler(db, c)
 	})
